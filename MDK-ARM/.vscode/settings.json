@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "main.h": "c",
+        "fft.h": "c",
+        "arm_const_structs.h": "c",
+        "adc.h": "c"
+    }
+}
