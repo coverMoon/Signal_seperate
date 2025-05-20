@@ -26,6 +26,7 @@ typedef struct
     uint8_t         waveType;   // 波形
     uint32_t        freq;       // 频率 
     float        	amp;        // 幅值
+	float			phase;		// 相位
     float           duty;       // 占空比，取值0~1
 	float			offset;		// 直流偏置电压
 }   DDS_TypeDef;
@@ -34,7 +35,7 @@ typedef struct
 //	Start DDS
 void DDS_Start(void);
 void DDS_Stop(void);
-void DDS_setWaveParams(uint32_t freq, float amplitude, uint8_t type, float duty, float offset);
-void getNewWaveLUT(uint32_t length, uint32_t freq, float amplitude, uint8_t type, float duty, float offset);
+void DDS_setWaveParams(uint32_t freq, float amplitude, float phase, uint8_t type, float duty, float offset);
+void getNewWaveLUT(uint32_t length, uint32_t freq, float amplitude, float phase, uint8_t type, float duty, float offset);
 
 #endif

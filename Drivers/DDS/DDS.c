@@ -33,7 +33,7 @@ void setOffset(float offset)
  */
 void DDS_Start()
 {
-	DDS_setWaveParams(DDS.freq, DDS.amp, DDS.waveType, DDS.duty, DDS.offset);
+	DDS_setWaveParams(DDS.freq, DDS.amp, DDS.phase, DDS.waveType, DDS.duty, DDS.offset);
 	
 	HAL_TIM_Base_Start(&htim8);
 	HAL_DAC_Start_DMA(&hdac, DAC_CHANNEL_1, (uint32_t*)DDS_lut, LUT_LENGTH, DAC_ALIGN_12B_R);
@@ -54,12 +54,13 @@ void DDS_Stop(void)
  * @brief       设置波形参数
  * @param       freq:    		输出频率
  * @param       amplitude:    	输出幅值
+* @param		phase:			输出相位，只针对正弦波，大小应为-PI~PI
  * @param       type:    		输出波形
  * @param		duty:			占空比: 0~1
  * @param		offset:			直流偏置电压
  * @retval      无
  */
-void DDS_setWaveParams(uint32_t freq, float amplitude, uint8_t type, float duty, float offset)
+void DDS_setWaveParams(uint32_t freq, float amplitude, float phase, uint8_t type, float duty, float offset)
 {
 	// 停止DAC输出
 	HAL_DAC_Stop_DMA(&hdac, DAC_CHANNEL_1);
@@ -94,7 +95,7 @@ void DDS_setWaveParams(uint32_t freq, float amplitude, uint8_t type, float duty,
 		TIM8 -> ARR = 2 * TIM_INITIAL_CLK / LUT_LENGTH / (TIM8 -> PSC + 1) / freq - 1;
 	}
 	
-	getNewWaveLUT(LUT_LENGTH, DDS.freq, DDS.amp, DDS.waveType, DDS.duty, DDS.offset);
+	getNewWaveLUT(LUT_LENGTH, DDS.freq, DDS.amp, DDS.phase, DDS.waveType, DDS.duty, DDS.offset);
 	setOffset(DDS.offset);
 	
 	
@@ -108,12 +109,13 @@ void DDS_setWaveParams(uint32_t freq, float amplitude, uint8_t type, float duty,
  * @param       length:			查找表长度
  * @param       freq:    		输出频率
  * @param       amplitude:    	输出幅值
+ * @param		phase:			输出相位，只针对正弦波，大小为-PI~PI
  * @param       type:    		输出波形
  * @param		duty:			占空比
  * @param		offset:			直流偏置电压
  * @retval      无
  */
-void getNewWaveLUT(uint32_t length, uint32_t freq, float amplitude, uint8_t type, float duty, float offset)
+void getNewWaveLUT(uint32_t length, uint32_t freq, float amplitude, float phase, uint8_t type, float duty, float offset)
 {
 	switch(type){
 		// 正弦波
@@ -122,9 +124,8 @@ void getNewWaveLUT(uint32_t length, uint32_t freq, float amplitude, uint8_t type
 				float sin_step = 2.0f * 3.14159f / (float)(length-1);
 				for (uint16_t i = 0; i < length; ++i)
 				{
-					DDS_lut[i] = (uint16_t) (DAC_MAX_AMP * ((float)amplitude * (sinf(sin_step * (float)i) + 1) / 2) / (float)DDS_MAX_AMP);
+					DDS_lut[i] = (uint16_t) (DAC_MAX_AMP * ((float)amplitude * (arm_sin_f32(sin_step * (float)i + phase) + 1) / 2) / (float)DDS_MAX_AMP);
 				}
-				
 				break;
 			}
 		// 方波
