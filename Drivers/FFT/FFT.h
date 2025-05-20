@@ -35,6 +35,7 @@ void FFT_start(uint8_t window_type);
 void find_peaks(uint32_t *k1, uint32_t *k2);
 float32_t interp_parabolic(float32_t left, float32_t center, float32_t right);
 void corr_amp_phase(float32_t freq, const float32_t *x, float32_t *A_out, float32_t *phi_out);
+void least_square(float32_t f1, float32_t f2, const float32_t *x, float32_t *I1, float32_t *Q1, float32_t *I2, float32_t *Q2);
 void window_hanning(void);
 void window_hamming(void);
 void window_blackman(void);

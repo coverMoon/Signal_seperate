@@ -44,7 +44,7 @@ void process_signal(void)
 	arm_atan2_f32(c1[1], c1[0], &phi1_now);
 	arm_atan2_f32(c2[1], c2[0], &phi2_now);
 
-	float32_t frameT = (float32_t)FFT_SIZE / (float32_t)SAMPLE_RATE * 2;	// 频移周期，即每帧间隔 4096 / 40k = 0.1024 s
+	float32_t frameT = (float32_t)FFT_SIZE / (float32_t)SAMPLE_RATE * 4;	// 频移周期，即每帧间隔 4096 / 40k = 0.1024 s
 	if (prev[0].k == k1) {
         float32_t phi_prev;
 		arm_atan2_f32(prev[0].im, prev[0].re, &phi_prev);
@@ -83,17 +83,156 @@ void process_signal(void)
 		
 	tones[0].f = f1;  tones[1].f = f2;
 
-
+	float32_t I1, Q1, I2, Q2;
+	least_square(tones[0].f, tones[1].f, ADC_ConvData, &I1, &Q1, &I2, &Q2);
+	tones[0].f = f1;
+    tones[0].A = sqrtf(I1 * I1 + Q1 * Q1);
+    tones[0].phi = atan2f(Q1, I1);
+    if(f2 > 0)
+	{
+		tones[1].f = f2;
+		tones[1].A = sqrtf(I2 * I2 + Q2 * Q2);
+		tones[1].phi = atan2f(Q2, I2);
+	}
+		
+	
 	// 精确计算幅度与相位
-	corr_amp_phase(tones[0].f, ADC_ConvData, &tones[0].A, &tones[0].phi);
-	if(f2 > 0)
-		corr_amp_phase(tones[1].f, ADC_ConvData, &tones[1].A, &tones[1].phi);
+//	corr_amp_phase(tones[0].f, ADC_ConvData, &tones[0].A, &tones[0].phi);
+//	if(f2 > 0)
+//		corr_amp_phase(tones[1].f, ADC_ConvData, &tones[1].A, &tones[1].phi);
+}
+
+/**
+ * @brief       最小二乘法计算幅度与相位
+ * @note		得到的幅度为Vop，非Vopp
+ * @param       f1, f2：			已确定频率
+ * @param		x：					采样序列
+ * @param		I1, Q1, I2, Q2：	求解参数组
+ * @retval      无
+ */
+void least_square(float32_t f1, float32_t f2, const float32_t *x, 
+				float32_t *I1, float32_t *Q1, 
+				float32_t *I2, float32_t *Q2)
+{
+	// 计算一次角增量
+	float32_t w1 = 2.0f * M_PI * f1 / SAMPLE_RATE;
+    float32_t w2 = 2.0f * M_PI * f2 / SAMPLE_RATE;
+	
+	// 迭代生产sin, cos序列
+	float32_t c1 = arm_cos_f32(w1), s1 = arm_sin_f32(w1);
+    float32_t c2 = arm_cos_f32(w2), s2 = arm_sin_f32(w2);
+    float32_t cn1 = 1, sn1 = 0, cn2 = 1, sn2 = 0;
+	
+	float32_t Scc1 = 0,Sss1 = 0,Scc2 = 0,Sss2 = 0;
+    float32_t Scc12 = 0,Scs12 = 0,Ssc12 = 0,Sss12 = 0;
+    float32_t SxC1 = 0,SxS1 = 0,SxC2 = 0,SxS2 = 0;
+    for (uint32_t n = 0; n < FFT_SIZE; ++n) 
+	{
+        float32_t xn = x[n];
+        // 同频能量
+        Scc1 += cn1 * cn1;
+        Sss1 += sn1 * sn1;
+        Scc2 += cn2 * cn2;
+        Sss2 += sn2 * sn2;
+        // 跨频交叉项
+        Scc12 += cn1 * cn2;
+        Scs12 += cn1 * sn2;
+        Ssc12 += sn1 * cn2;
+        Sss12 += sn1 * sn2;
+        // 数据投影
+        SxC1 += xn * cn1;
+        SxS1 += xn * sn1;
+        SxC2 += xn * cn2;
+        SxS2 += xn * sn2;
+        // 迭代sin/cos
+        float ncn1 = cn1 * c1 - sn1 * s1;
+        float nsn1 = sn1 * c1 + cn1 * s1;
+        float ncn2 = cn2 * c2 - sn2 * s2;
+        float nsn2 = sn2 * c2 + cn2 * s2;
+        cn1 = ncn1; 
+		sn1 = nsn1; 
+		cn2 = ncn2; 
+		sn2 = nsn2;
+    }
+	
+	// 构建正交矩阵和投影向量，部分交叉项可近似为0
+	float32_t H[4][4] = {
+        {Scc1,    0,      Scc12,  Scs12},
+        {0,       Sss1,   Ssc12,  Sss12},
+        {Scc12,   Ssc12,  Scc2,   0    },
+        {Scs12,   Sss12,  0,      Sss2 }
+    };	
+	float32_t b[4] = {SxC1, SxS1, SxC2, SxS2};
+	
+	// 高斯消元
+    for (int k = 0; k < 4; k++) 
+	{
+        // 主元选择
+        int m = k;
+        float_t maxv = fabsf(H[k][k]);
+        for (int i = k + 1; i < 4; ++i) 
+		{
+			if(fabsf(H[i][k]) > maxv)
+			{
+				m = i;
+				maxv = fabsf(H[i][k]);
+			}
+		}
+        // 交换行		
+        for(int j = k; j < 4; ++j) 
+		{
+			float_t t = H[k][j]; 
+			H[k][j] = H[m][j]; 
+			H[m][j] = t;
+		} 
+        float_t tb = b[k]; 
+		b[k] = b[m]; 
+		b[m] = tb;
+        
+        // 标准化主行
+        float_t diag = H[k][k];
+        for (int j = k; j < 4; ++j) 
+			H[k][j] /= diag; 
+			
+		b[k] /= diag;
+		
+		// 消去下方得到上三角式
+        for (int i = k + 1; i < 4; ++i) 
+		{
+            float_t factor = H[i][k];
+            for(int j = k; j < 4; ++j) 
+				H[i][j] -= factor * H[k][j];
+			
+            b[i] -= factor * b[k];
+        }
+    }
+	
+	// 回代求解
+    float32_t theta[4];
+    for(int i = 3; i >= 0; --i)
+	{
+        float32_t sum = b[i];
+        for(int j = i + 1; j < 4; ++j) 
+			sum -= H[i][j] * theta[j];
+		
+        theta[i] = sum;
+    }
+    
+	// 缩放比例
+    float32_t scale = 2.0f/ (float32_t)FFT_SIZE ;
+    *I1 = theta[0] * scale;
+    *Q1 = theta[1] * scale;
+    *I2 = theta[2] * scale;
+    *Q2 = theta[3] * scale;
 }
 
 /**
  * @brief       相关法计算幅度与相位
  * @note		得到的幅度为Vop，非Vopp
- * @param       无
+ * @param       freq: 		已确定的频率
+ * @param		x:			采样序列
+ * @param		A_out:		幅度输出
+ * @pqarm		phi_out:	相位输出
  * @retval      无
  */
 void corr_amp_phase(float32_t freq, const float32_t *x, float32_t *A_out, float32_t *phi_out)
@@ -170,7 +309,6 @@ void FFT_start(uint8_t window_type)
 	{
 		ADC_ConvData[i] = ADC_ConvData[i] - sum_avr;
 		fft_inputbuf[i] = ADC_ConvData[i] * window[i];
-//		fft_inputbuf[i] = ADC_ConvData[i] * window[i];
 	}
 
 	// FFT

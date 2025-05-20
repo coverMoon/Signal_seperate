@@ -111,8 +111,8 @@ int main(void)
   /* USER CODE BEGIN 2 */
   LCD_Init();
   
-  DDS.amp = 1.0;
-  DDS.freq = 8000; 
+  DDS.amp = 2.0;
+  DDS.freq = 1000; 
   DDS.duty = 0.5;
   DDS.waveType = SINE_WAVE;
   DDS.offset = 1.0;
