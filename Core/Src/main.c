@@ -110,15 +110,15 @@ int main(void)
   MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
   LCD_Init();
-  
-  DDS.amp = 2.0;
-  DDS.freq = 1000;
-  DDS.phase = 0.0;
-  DDS.duty = 0.5;
-  DDS.waveType = SINE_WAVE;
-  DDS.offset = 1.0;
-  DDS_Start();
   HAL_Delay(500);
+  
+//  DDS.amp = 2.0;
+//  DDS.freq = 1000;
+//  DDS.phase = 0;
+//  DDS.duty = 0.5;
+//  DDS.waveType = SINE_WAVE;
+//  DDS.offset = 0.5;
+//  DDS_Start();
   
   printf("start\r\n");
   
@@ -146,6 +146,15 @@ int main(void)
          printf("\r\nf1=%8.3f Hz  A1=%6.3f  phi1=%7.3f  |  f2=%8.3f Hz  A2=%6.3f  phi2=%7.3f\r\n",
                 tones[0].f, tones[0].A, tones[0].phi,
                 tones[1].f, tones[1].A, tones[1].phi);
+		 
+		 // 装填DDS波形参数
+		 DDS.amp = tones[0].A * 2;
+		 DDS.freq = tones[0].f;
+		 DDS.phase = 0;
+		 DDS.duty = 0.5;
+		 DDS.waveType = SINE_WAVE;
+		 DDS.offset = 0;
+		 DDS_Start();
 		 
 		 HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
      }

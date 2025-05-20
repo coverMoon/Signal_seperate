@@ -24,6 +24,11 @@ void process_signal(void)
 {
 	// 开启FFT
 	FFT_start(BLACKMAN_HARRIS);
+	
+//	for(int i = 0; i < FFT_SIZE / 2; ++i)
+//	{
+//		printf("%.2f, ", mag[i]);
+//	}
 
 	// 找到两信号粗估计bin下标
 	uint32_t k1, k2;
@@ -34,8 +39,10 @@ void process_signal(void)
 	float32_t d2 = interp_parabolic(mag[k2 - 1U], mag[k2], mag[k2 + 1U]);
 	float32_t k1_hat = (float32_t)k1 + d1;
 	float32_t k2_hat = (float32_t)k2 + d2;
-	float32_t f1 = k1_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
-	float32_t f2 = k2_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
+//	float32_t f1 = k1_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
+//	float32_t f2 = k2_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
+	float32_t f1 = (float32_t)k1 * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
+	float32_t f2 = (float32_t)k2 * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
 
 	// 相位差法进一步精确
 	float32_t *c1 = &fft_outputbuf[k1 * 2U];	// 得到复数频率点
@@ -44,7 +51,7 @@ void process_signal(void)
 	arm_atan2_f32(c1[1], c1[0], &phi1_now);
 	arm_atan2_f32(c2[1], c2[0], &phi2_now);
 
-	float32_t frameT = (float32_t)FFT_SIZE / (float32_t)SAMPLE_RATE * 4;	// 频移周期，即每帧间隔 4096 / 40k = 0.1024 s
+	float32_t frameT = (float32_t)FFT_SIZE / (float32_t)SAMPLE_RATE;	// 频移周期，即每帧间隔 4096 / 40k = 0.1024 s
 	if (prev[0].k == k1) {
         float32_t phi_prev;
 		arm_atan2_f32(prev[0].im, prev[0].re, &phi_prev);
@@ -83,23 +90,24 @@ void process_signal(void)
 		
 	tones[0].f = f1;  tones[1].f = f2;
 
-	float32_t I1, Q1, I2, Q2;
-	least_square(tones[0].f, tones[1].f, ADC_ConvData, &I1, &Q1, &I2, &Q2);
-	tones[0].f = f1;
-    tones[0].A = sqrtf(I1 * I1 + Q1 * Q1);
-    tones[0].phi = atan2f(Q1, I1);
-    if(f2 > 0)
+	// 最小二乘法计算幅度与相位
+	if(f2 > 0)
 	{
+		float32_t I1, Q1, I2, Q2;
+		least_square(tones[0].f, tones[1].f, ADC_ConvData, &I1, &Q1, &I2, &Q2);
+		tones[0].f = f1;
+		arm_sqrt_f32(I1 * I1 + Q1 * Q1, &tones[0].A);
+		arm_atan2_f32(Q1, I1, &tones[0].phi);
 		tones[1].f = f2;
-		tones[1].A = sqrtf(I2 * I2 + Q2 * Q2);
-		tones[1].phi = atan2f(Q2, I2);
+		arm_sqrt_f32(I2 * I2 + Q2 * Q2, &tones[1].A);
+		arm_atan2_f32(Q2, I2, &tones[1].phi);
 	}
-		
-	
-	// 精确计算幅度与相位
-//	corr_amp_phase(tones[0].f, ADC_ConvData, &tones[0].A, &tones[0].phi);
-//	if(f2 > 0)
-//		corr_amp_phase(tones[1].f, ADC_ConvData, &tones[1].A, &tones[1].phi);
+	else
+	{
+		// 相关法计算幅度与相位
+		corr_amp_phase(tones[0].f, ADC_ConvData, &tones[0].A, &tones[0].phi);
+		corr_amp_phase(tones[1].f, ADC_ConvData, &tones[1].A, &tones[1].phi);
+	}				
 }
 
 /**
@@ -185,15 +193,19 @@ void least_square(float32_t f1, float32_t f2, const float32_t *x,
 			H[k][j] = H[m][j]; 
 			H[m][j] = t;
 		} 
-        float_t tb = b[k]; 
+        float32_t tb = b[k]; 
 		b[k] = b[m]; 
 		b[m] = tb;
         
         // 标准化主行
-        float_t diag = H[k][k];
+        float32_t diag = H[k][k];
         for (int j = k; j < 4; ++j) 
 			H[k][j] /= diag; 
-			
+		
+		int test = 0;
+		if(k == 3)
+			test = 1;
+		
 		b[k] /= diag;
 		
 		// 消去下方得到上三角式
@@ -219,11 +231,11 @@ void least_square(float32_t f1, float32_t f2, const float32_t *x,
     }
     
 	// 缩放比例
-    float32_t scale = 2.0f/ (float32_t)FFT_SIZE ;
-    *I1 = theta[0] * scale;
-    *Q1 = theta[1] * scale;
-    *I2 = theta[2] * scale;
-    *Q2 = theta[3] * scale;
+//    float32_t scale = 2.0f/ (float32_t)FFT_SIZE ;
+    *I1 = theta[0];
+    *Q1 = theta[1];
+    *I2 = theta[2];
+    *Q2 = theta[3];
 }
 
 /**
@@ -343,8 +355,8 @@ void FFT_start(uint8_t window_type)
 void find_peaks(uint32_t *k1, uint32_t *k2)
 {
 	float32_t m1 = 0, m2 = 0; 
-	uint32_t i1 = 0, i2 = 0;
-    for (uint32_t k = 9; k < FFT_SIZE / 2; ++k) 
+	int i1 = 0, i2 = 0;
+    for (int k = 9; k < FFT_SIZE / 2; ++k) 
 	{
         float32_t v = mag[k];
         if (v > m1) 
@@ -354,7 +366,7 @@ void find_peaks(uint32_t *k1, uint32_t *k2)
 			m1 = v; 
 			i1 = k; 
 		}
-        else if (v > m2) 
+        else if (v > m2 && ((k - i1 > 9) || (k - i1 < -9))) 
 		{ 
 			m2 = v; 
 			i2 = k;

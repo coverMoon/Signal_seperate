@@ -96,7 +96,7 @@ void DDS_setWaveParams(uint32_t freq, float amplitude, float phase, uint8_t type
 	}
 	
 	getNewWaveLUT(LUT_LENGTH, DDS.freq, DDS.amp, DDS.phase, DDS.waveType, DDS.duty, DDS.offset);
-	setOffset(DDS.offset);
+//	setOffset(DDS.offset);
 	
 	
 	// 重启定时器和DAC
@@ -124,7 +124,7 @@ void getNewWaveLUT(uint32_t length, uint32_t freq, float amplitude, float phase,
 				float sin_step = 2.0f * 3.14159f / (float)(length-1);
 				for (uint16_t i = 0; i < length; ++i)
 				{
-					DDS_lut[i] = (uint16_t) (DAC_MAX_AMP * ((float)amplitude * (arm_sin_f32(sin_step * (float)i + phase) + 1) / 2) / (float)DDS_MAX_AMP);
+					DDS_lut[i] = (uint16_t)(((float)amplitude / 2.0f * arm_sin_f32((float)i * sin_step + phase) + 1.5) / DDS_MAX_AMP * (float)DAC_MAX_AMP);
 				}
 				break;
 			}
