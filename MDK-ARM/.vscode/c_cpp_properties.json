@@ -108,6 +108,7 @@
                 "d:\\project\\STM32\\xjtu_f4\\Signal_seperate\\Drivers\\FFT",
                 "d:\\project\\STM32\\xjtu_f4\\Signal_seperate\\Drivers\\CMSIS\\DSP\\Include",
                 "d:\\project\\STM32\\xjtu_f4\\Signal_seperate\\Middlewares\\ST\\ARM\\DSP\\Inc",
+                "d:\\project\\STM32\\xjtu_f4\\Signal_seperate\\Drivers\\DDS",
                 "D:\\Tools\\keil_v5\\ARM\\ARMCC\\include",
                 "D:\\Tools\\keil_v5\\ARM\\ARMCC\\include\\arm_linux",
                 "D:\\Tools\\keil_v5\\ARM\\ARMCC\\include\\arm_linux_compat",

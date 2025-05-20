@@ -2,6 +2,7 @@
 #include "dac.h"
 #include "tim.h"
 #include "math.h"
+#include "arm_math.h"
 
 DDS_TypeDef     		DDS;
 volatile uint16_t  		DDS_lut[LUT_LENGTH];
@@ -73,10 +74,11 @@ void DDS_setWaveParams(uint32_t freq, float amplitude, uint8_t type, float duty,
 	
 	
 	// 设定频率，修改定时器寄存器参数，使arr值都稳定在三位数以上，减少误差
+	// 该配置针对 256 位查找表
 	if (freq >= 1 && freq <= 100)
 	{
-		// 频率为1~100Hz，arr为156~15625
-		TIM8 -> PSC = 42 - 1;
+		// 频率为1~100Hz，arr为117~11718
+		TIM8 -> PSC = 14 - 1;
 		TIM8 -> ARR = 2 * TIM_INITIAL_CLK / LUT_LENGTH / (TIM8 -> PSC + 1) / freq - 1;
 	}
 	else if (freq > 100 && freq <= 1000)

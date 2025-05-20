@@ -2,7 +2,7 @@
 #include "FFT.h"
 #include "usart.h"
 
-uint16_t *ADCbuff;						// 采样数据
+uint16_t *ADCbuff;								// 采样数据
 static float32_t ADC_ConvData[FFT_SIZE];		// ADC模拟值
 static float32_t fft_inputbuf[FFT_SIZE];  		// 用于FFT的输入数据
 static float32_t fft_outputbuf[FFT_SIZE];		// 保存FFT结果
@@ -44,7 +44,7 @@ void process_signal(void)
 	arm_atan2_f32(c1[1], c1[0], &phi1_now);
 	arm_atan2_f32(c2[1], c2[0], &phi2_now);
 
-	float32_t frameT = (float32_t)FFT_SIZE / (float32_t)SAMPLE_RATE;	// 频移周期，即每帧间隔 4096 / 40k = 0.1024 s
+	float32_t frameT = (float32_t)FFT_SIZE / (float32_t)SAMPLE_RATE * 2;	// 频移周期，即每帧间隔 4096 / 40k = 0.1024 s
 	if (prev[0].k == k1) {
         float32_t phi_prev;
 		arm_atan2_f32(prev[0].im, prev[0].re, &phi_prev);
@@ -85,9 +85,9 @@ void process_signal(void)
 
 
 	// 精确计算幅度与相位
-	corr_amp_phase(tones[0].f, fft_inputbuf, &tones[0].A, &tones[0].phi);
+	corr_amp_phase(tones[0].f, ADC_ConvData, &tones[0].A, &tones[0].phi);
 	if(f2 > 0)
-		corr_amp_phase(tones[1].f, fft_inputbuf, &tones[1].A, &tones[1].phi);
+		corr_amp_phase(tones[1].f, ADC_ConvData, &tones[1].A, &tones[1].phi);
 }
 
 /**
@@ -168,8 +168,9 @@ void FFT_start(uint8_t window_type)
 	// 初始化FFT输入数组
 	for(i = 0; i < FFT_SIZE; ++i)
 	{
-//		fft_inputbuf[i] = (ADC_ConvData[i] - sum_avr) * window[i];
+		ADC_ConvData[i] = ADC_ConvData[i] - sum_avr;
 		fft_inputbuf[i] = ADC_ConvData[i] * window[i];
+//		fft_inputbuf[i] = ADC_ConvData[i] * window[i];
 	}
 
 	// FFT
