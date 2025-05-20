@@ -1,10 +1,12 @@
 #include "main.h"
 #include "FFT.h"
+#include "usart.h"
 
-uint16_t ADCbuff[FFT_SIZE];						// 采样数据
-static float32_t fft_inputbuf[FFT_SIZE_ZP];  	// 用于FFT的输入数据
-static float32_t fft_outputbuf[FFT_SIZE_ZP];	// 保存FFT结果
-static float32_t mag[FFT_SIZE];					// 保存FFT频域幅值
+uint16_t *ADCbuff;						// 采样数据
+static float32_t ADC_ConvData[FFT_SIZE];		// ADC模拟值
+static float32_t fft_inputbuf[FFT_SIZE];  		// 用于FFT的输入数据
+static float32_t fft_outputbuf[FFT_SIZE];		// 保存FFT结果
+static float32_t mag[FFT_SIZE / 2];				// 保存FFT频域幅值
 static float32_t window[FFT_SIZE]; 				// 窗函数
 static float window_cg = 0.0f;					// 窗函数相干增益
 
@@ -21,7 +23,7 @@ tone_t tones[2] = { 0 };
 void process_signal(void)
 {
 	// 开启FFT
-	FFT_start(BLACKMAN);
+	FFT_start(BLACKMAN_HARRIS);
 
 	// 找到两信号粗估计bin下标
 	uint32_t k1, k2;
@@ -32,11 +34,11 @@ void process_signal(void)
 	float32_t d2 = interp_parabolic(mag[k2 - 1U], mag[k2], mag[k2 + 1U]);
 	float32_t k1_hat = (float32_t)k1 + d1;
 	float32_t k2_hat = (float32_t)k2 + d2;
-	float32_t f1 = k1_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE_ZP;
-	float32_t f2 = k2_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE_ZP;
+	float32_t f1 = k1_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
+	float32_t f2 = k2_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
 
 	// 相位差法进一步精确
-	float32_t *c1 = &fft_outputbuf[k1 * 2U];	// 得到负数频率点
+	float32_t *c1 = &fft_outputbuf[k1 * 2U];	// 得到复数频率点
 	float32_t *c2 = &fft_outputbuf[k2 * 2U];
 	float32_t phi1_now, phi2_now;				// 计算当前相位
 	arm_atan2_f32(c1[1], c1[0], &phi1_now);
@@ -69,11 +71,23 @@ void process_signal(void)
 	// 更新前帧结构体
 	prev[0] = (bin_prev_t){c1[0], c1[1], k1};
 	prev[1] = (bin_prev_t){c2[0], c2[1], k2};
+	
+	uint32_t tempflag;
+	if(k1 > k2)
+		tempflag = k1 - k2;
+	else
+		tempflag = k2 - k1;
+	
+	if(tempflag < 10)
+		f2 = 0.0f;
+		
+	tones[0].f = f1;  tones[1].f = f2;
 
 
 	// 精确计算幅度与相位
 	corr_amp_phase(tones[0].f, fft_inputbuf, &tones[0].A, &tones[0].phi);
-	corr_amp_phase(tones[1].f, fft_inputbuf, &tones[1].A, &tones[1].phi);
+	if(f2 > 0)
+		corr_amp_phase(tones[1].f, fft_inputbuf, &tones[1].A, &tones[1].phi);
 }
 
 /**
@@ -91,7 +105,7 @@ void corr_amp_phase(float32_t freq, const float32_t *x, float32_t *A_out, float3
 
 	// CORDIC-like迭代生成sin,cos序列
 	float32_t cos_n = 1.0f, sin_n = 0.0f;
-	float32_t acc_cos = 0.0f, acc_sin = 1.0f;
+	float32_t acc_cos = 0.0f, acc_sin = 0.0f;	
 
 	int n;
 	for(n = 0; n < FFT_SIZE; ++n)
@@ -107,7 +121,8 @@ void corr_amp_phase(float32_t freq, const float32_t *x, float32_t *A_out, float3
 		sin_n = sin_next;
 	}
 
-	float32_t scale = 1.0f / ((float32_t)FFT_SIZE * window_cg);		// 计算缩放比例
+//	float32_t scale = 2.0f / ((float32_t)FFT_SIZE * window_cg);		// 计算缩放比例
+	float32_t scale = 2.0f / (float32_t)FFT_SIZE;
 	float32_t a = acc_cos * scale;		// Asin(phi)
 	float32_t b = acc_sin * scale;		// Acos(phi)
 
@@ -141,23 +156,42 @@ void FFT_start(uint8_t window_type)
 	int i;						// 计数器
 		
 	Init_window(window_type);
-
+	
+	float32_t sum_avr = 0.0f;
+	for(i = 0; i < FFT_SIZE; ++i)
+	{
+		ADC_ConvData[i] = (float32_t)ADCbuff[i] * 3.3f / 4096.0f;
+		sum_avr += ADC_ConvData[i];
+	}
+	sum_avr = sum_avr / FFT_SIZE;
+	
 	// 初始化FFT输入数组
 	for(i = 0; i < FFT_SIZE; ++i)
 	{
-		fft_inputbuf[i] = (float)ADCbuff[i] * 3.3f / 4096.0f * window[i];	
-		fft_inputbuf[i + FFT_SIZE] = 0.0f;			
+//		fft_inputbuf[i] = (ADC_ConvData[i] - sum_avr) * window[i];
+		fft_inputbuf[i] = ADC_ConvData[i] * window[i];
 	}
 
 	// FFT
 	arm_rfft_fast_instance_f32 Rfft;
-	arm_rfft_fast_init_f32(&Rfft, FFT_SIZE_ZP);
+	arm_rfft_fast_init_f32(&Rfft, FFT_SIZE);
 
 	arm_rfft_fast_f32(&Rfft, fft_inputbuf, fft_outputbuf, 0);
 	arm_cmplx_mag_f32(fft_outputbuf, mag, FFT_SIZE);
-				
+	
+	
+	
+//	for(i = 0; i < FFT_SIZE; ++i)
+//	{
+//		fft_inputbuf[i * 2] = ((float)ADCbuff[i] * 3.3f / 4096.0f);	// 采样值填入实部部分
+//		fft_inputbuf[i * 2 + 1] = 0;			// 虚部全部为0
+//	}
+//	
 //	arm_cfft_f32(&arm_cfft_sR_f32_len4096, fft_inputbuf, 0, 1);  	//fft运算
-//	arm_cmplx_mag_f32(fft_inputbuf,fft_outputbuf,FFT_SIZE);			//把运算结果复数求模得幅值		
+//	arm_cmplx_mag_f32(fft_inputbuf,mag,FFT_SIZE);			//把运算结果复数求模得幅值
+
+//	for(int i = 0; i < FFT_SIZE / 2; ++i)
+//		printf("%.2f, ", mag[i]);
 }
 
 /**
@@ -171,7 +205,7 @@ void find_peaks(uint32_t *k1, uint32_t *k2)
 {
 	float32_t m1 = 0, m2 = 0; 
 	uint32_t i1 = 0, i2 = 0;
-    for (uint32_t k = 1; k < FFT_SIZE / 2; ++k) 
+    for (uint32_t k = 9; k < FFT_SIZE / 2; ++k) 
 	{
         float32_t v = mag[k];
         if (v > m1) 
@@ -184,9 +218,10 @@ void find_peaks(uint32_t *k1, uint32_t *k2)
         else if (v > m2) 
 		{ 
 			m2 = v; 
-			i2 = k; 
+			i2 = k;
 		}
     }
+	
     *k1 = i1; 
 	*k2 = i2;
 }

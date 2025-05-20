@@ -32,6 +32,7 @@
 #include "math.h"
 #include "LCDAPI.h"
 #include "FFT.h"
+#include "DDS.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,10 +51,13 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+
 /* USER CODE BEGIN PV */
-extern uint16_t ADCbuff[FFT_SIZE];						// 采样数据
+extern uint16_t *ADCbuff;						// 采样数据
 extern bin_prev_t prev[2];
 extern tone_t tones[2];
+extern DDS_TypeDef DDS;
+uint16_t ADCbuff_2frame[FFT_SIZE * 2];
 uint8_t frame_ready = 0;
 /* USER CODE END PV */
 
@@ -106,7 +110,18 @@ int main(void)
   MX_TIM8_Init();
   /* USER CODE BEGIN 2 */
   LCD_Init();
-  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADCbuff, FFT_SIZE);
+  
+  DDS.amp = 1.0;
+  DDS.freq = 8000; 
+  DDS.duty = 0.5;
+  DDS.waveType = SINE_WAVE;
+  DDS.offset = 1.0;
+  DDS_Start();
+  HAL_Delay(500);
+  
+  printf("start\r\n");
+  
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t *)ADCbuff_2frame, FFT_SIZE * 2);
   HAL_TIM_Base_Start(&htim3);
   /* USER CODE END 2 */
 
@@ -114,15 +129,27 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	 if (frame_ready) 
+	 {
+         ADCbuff = &ADCbuff_2frame[0]; 
+		 process_signal();
+		 
+		 printf("\r\nf1=%8.3f Hz  A1=%6.3f  phi1=%7.3f  |  f2=%8.3f Hz  A2=%6.3f  phi2=%7.3f\r\n",
+               tones[0].f, tones[0].A, tones[0].phi,
+               tones[1].f, tones[1].A, tones[1].phi);
+		 
+		 ADCbuff = &ADCbuff_2frame[4096];
+		 process_signal();
+         frame_ready = 0;
+           
+         printf("\r\nf1=%8.3f Hz  A1=%6.3f  phi1=%7.3f  |  f2=%8.3f Hz  A2=%6.3f  phi2=%7.3f\r\n",
+                tones[0].f, tones[0].A, tones[0].phi,
+                tones[1].f, tones[1].A, tones[1].phi);
+		 
+		 HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+     }
     /* USER CODE END WHILE */
-    if(frame_ready)
-    {
-      process_signal();
-      frame_ready = 0;
-      printf("f1=%8.3f Hz  A1=%6.3f  φ1=%7.3f°   |  f2=%8.3f Hz  A2=%6.3f  φ2=%7.3f°\r\n",
-        tones[0].f, tones[0].A, tones[0].phi * 180.0f/PI,
-        tones[1].f, tones[1].A, tones[1].phi * 180.0f/PI);
-    }
+
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

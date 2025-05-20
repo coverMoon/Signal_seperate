@@ -64,3 +64,5 @@ model\fft.o: ../Drivers/CMSIS/DSP/Include/dsp/filtering_functions.h
 model\fft.o: ../Drivers/CMSIS/DSP/Include/dsp/quaternion_math_functions.h
 model\fft.o: ../Drivers/CMSIS/DSP/Include/arm_const_structs.h
 model\fft.o: ../Drivers/CMSIS/DSP/Include/arm_common_tables.h
+model\fft.o: ../Core/Inc/usart.h
+model\fft.o: D:\Tools\keil_v5\ARM\ARMCC\Bin\..\include\stdio.h

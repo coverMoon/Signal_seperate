@@ -6,7 +6,6 @@
 #include "arm_const_structs.h"
 
 #define FFT_SIZE            4096			// 采样数量
-#define FFT_SIZE_ZP         8192            // 零填充后数据数量
 #define SAMPLE_RATE         40000           // 采样率
 
 enum{

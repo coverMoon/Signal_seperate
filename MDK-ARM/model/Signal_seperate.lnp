@@ -36,6 +36,7 @@
 "model\ili9341.o"
 "model\lcdapi.o"
 "model\fft.o"
+"model\dds.o"
 "model\arm_atan2_f32.o"
 "model\arm_cos_f32.o"
 "model\arm_sin_f32.o"

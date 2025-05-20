@@ -276,5 +276,6 @@ void DMA2_Stream0_IRQHandler(void)
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef *hadc)
 {
   frame_ready = 1;
+  HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
 }
 /* USER CODE END 1 */

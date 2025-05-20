@@ -76,3 +76,4 @@ model\main.o: ../Drivers/CMSIS/DSP/Include/dsp/filtering_functions.h
 model\main.o: ../Drivers/CMSIS/DSP/Include/dsp/quaternion_math_functions.h
 model\main.o: ../Drivers/CMSIS/DSP/Include/arm_const_structs.h
 model\main.o: ../Drivers/CMSIS/DSP/Include/arm_common_tables.h
+model\main.o: ../Drivers/DDS/DDS.h
