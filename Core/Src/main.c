@@ -112,6 +112,15 @@ int main(void)
   LCD_Init();
   HAL_Delay(500);
   
+  LCD_FillScreen(LCD_COLOR_WHITE);
+  LCD_Disp_Text(10, 10, LCD_COLOR_BLACK, 3, ASCII5x7, "Succeed!");
+  LCD_Disp_Text(15, 50, LCD_COLOR_BLACK, 3, ASCII5x7, "U1");
+  LCD_Disp_Text(30, 80, LCD_COLOR_BLACK, 2, ASCII5x7, "FREQ: ");
+  LCD_Disp_Text(30, 105, LCD_COLOR_BLACK, 2, ASCII5x7, "Vopp: ");
+  LCD_Disp_Text(15, 150, LCD_COLOR_BLACK, 3, ASCII5x7, "U2");
+  LCD_Disp_Text(30, 180, LCD_COLOR_BLACK, 2, ASCII5x7, "FREQ: ");
+  LCD_Disp_Text(30, 205, LCD_COLOR_BLACK, 2, ASCII5x7, "Vopp: ");
+  
 //  DDS.amp = 2.0;
 //  DDS.freq = 1000;
 //  DDS.phase = 0;
@@ -132,31 +141,62 @@ int main(void)
   {
 	 if (frame_ready) 
 	 {
-         ADCbuff = &ADCbuff_2frame[0]; 
-		 process_signal();
+        ADCbuff = &ADCbuff_2frame[0]; 
+		process_signal();
 		 
-		 printf("\r\nf1=%8.3f Hz  A1=%6.3f  phi1=%7.3f  |  f2=%8.3f Hz  A2=%6.3f  phi2=%7.3f\r\n",
+		printf("\r\nf1=%8.3f Hz  A1=%6.3f  phi1=%7.3f  |  f2=%8.3f Hz  A2=%6.3f  phi2=%7.3f\r\n",
                tones[0].f, tones[0].A, tones[0].phi,
                tones[1].f, tones[1].A, tones[1].phi);
 		 
-		 ADCbuff = &ADCbuff_2frame[4096];
-		 process_signal();
-         frame_ready = 0;
+		ADCbuff = &ADCbuff_2frame[4096];
+		process_signal();
+        frame_ready = 0;
            
-         printf("\r\nf1=%8.3f Hz  A1=%6.3f  phi1=%7.3f  |  f2=%8.3f Hz  A2=%6.3f  phi2=%7.3f\r\n",
+        printf("\r\nf1=%8.3f Hz  A1=%6.3f  phi1=%7.3f  |  f2=%8.3f Hz  A2=%6.3f  phi2=%7.3f\r\n",
                 tones[0].f, tones[0].A, tones[0].phi,
                 tones[1].f, tones[1].A, tones[1].phi);
 		 
-		 // 装填DDS波形参数
-		 DDS.amp = tones[0].A * 2;
-		 DDS.freq = tones[0].f;
-		 DDS.phase = 0;
-		 DDS.duty = 0.5;
-		 DDS.waveType = SINE_WAVE;
-		 DDS.offset = 0;
-		 DDS_Start();
 		 
-		 HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
+		// 装填DDS波形参数
+		DDS.amp = tones[0].A * 2;
+		DDS.freq = tones[0].f;
+		DDS.phase = tones[0].phi;
+		DDS.duty = 0.5;
+		DDS.waveType = SINE_WAVE;
+		DDS.offset = 0;
+		DDS_Start();
+		
+		// 判断频率整数位数
+		int intnum_1 = 0;
+		int intnum_2 = 0;
+		int temp_1 = (int)tones[0].f;
+		int temp_2 = (int)tones[1].f;
+		
+		while(temp_1 > 0)
+		{
+			intnum_1++;
+			temp_1 /= 10;
+		}
+		
+		while(temp_2 > 0)
+		{
+			intnum_2++;
+			temp_2 /= 10;
+		}
+			
+		LCD_Disp_Decimal(100, 80, LCD_COLOR_BLACK, 2, ASCII5x7, (double)tones[0].f, intnum_1, 2);
+		LCD_Disp_Text(145 + intnum_1 * 10, 80, LCD_COLOR_BLACK, 2, ASCII5x7, "Hz");
+
+		LCD_Disp_Decimal(100, 105, LCD_COLOR_BLACK, 2, ASCII5x7, (double)tones[0].A * 10, 1, 2);
+		LCD_Disp_Text(155, 105, LCD_COLOR_BLACK, 2, ASCII5x7, "V");
+		
+		LCD_Disp_Decimal(100, 180, LCD_COLOR_BLACK, 2, ASCII5x7, (double)tones[1].f, intnum_2, 2);
+		LCD_Disp_Text(145 + intnum_2 * 10, 180, LCD_COLOR_BLACK, 2, ASCII5x7, "Hz");
+
+		LCD_Disp_Decimal(100, 205, LCD_COLOR_BLACK, 2, ASCII5x7, (double)tones[1].A * 10, 1, 2);
+		LCD_Disp_Text(155, 205, LCD_COLOR_BLACK, 2, ASCII5x7, "V");
+		 
+		HAL_GPIO_TogglePin(LED_R_GPIO_Port, LED_R_Pin);
      }
     /* USER CODE END WHILE */
 

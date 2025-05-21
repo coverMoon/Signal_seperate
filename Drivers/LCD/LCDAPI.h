@@ -30,6 +30,25 @@
 #define LCD_NUM_UPPERDIGITS 1
 #define LCD_NUM_LOWERDIGITS 0
 
+/* 常用颜色定义（RGB565） */
+#define LCD_COLOR_WHITE        0xFFFF
+#define LCD_COLOR_BLACK        0x0000
+#define LCD_COLOR_BLUE         0x001F
+#define LCD_COLOR_BRED         0XF81F
+#define LCD_COLOR_GRED         0XFFE0
+#define LCD_COLOR_GBLUE        0X07FF
+#define LCD_COLOR_RED          0xF800
+#define LCD_COLOR_MAGENTA      0xF81F
+#define LCD_COLOR_GREEN        0x07E0
+#define LCD_COLOR_CYAN         0x7FFF
+#define LCD_COLOR_YELLOW       0xFFE0
+#define LCD_COLOR_BROWN        0xBC40
+#define LCD_COLOR_BRRED        0xFC07
+#define LCD_COLOR_GREY         0x8430
+#define LCD_COLOR_LIGHTGREY    0xD69A
+#define LCD_COLOR_DIMGRAY      0x6B4D
+
+
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */

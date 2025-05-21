@@ -21,17 +21,22 @@ Target DLL:      STLink\ST-LINKIII-KEIL_SWO.dll V3.2.0.0
 Dialog DLL:      TCM.DLL V1.56.4.0
  
 <h2>Project:</h2>
-D:\project\STM32\xjtu_f4\Signal_seperate\MDK-ARM\Signal_seperate.uvprojx
-Project File Date:  05/20/2025
+D:\project\STM32\xjtu_f4\test\Signal_seperate\MDK-ARM\Signal_seperate.uvprojx
+Project File Date:  05/21/2025
 
 <h2>Output:</h2>
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'D:\Tools\keil_v5\ARM\ARMCC\Bin'
 Build target 'Signal_seperate'
-compiling main.c...
+compiling FFT.c...
+..\Drivers\FFT\FFT.c(193): warning:  #550-D: variable "test"  was set but never used
+  		int test = 0;
+..\Drivers\FFT\FFT.c(11): warning:  #550-D: variable "window_cg"  was set but never used
+  static float window_cg = 0.0f;					// 窗函数相干增�?
+..\Drivers\FFT\FFT.c: 2 warnings, 0 errors
 linking...
-Program Size: Code=29804 RO-data=122536 RW-data=48 ZI-data=92824  
+Program Size: Code=31088 RO-data=125716 RW-data=48 ZI-data=92824  
 FromELF: creating hex file...
-"model\Signal_seperate.axf" - 0 Error(s), 0 Warning(s).
+"model\Signal_seperate.axf" - 0 Error(s), 2 Warning(s).
 
 <h2>Software Packages used:</h2>
 

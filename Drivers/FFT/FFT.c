@@ -25,22 +25,10 @@ void process_signal(void)
 	// 开启FFT
 	FFT_start(BLACKMAN_HARRIS);
 	
-//	for(int i = 0; i < FFT_SIZE / 2; ++i)
-//	{
-//		printf("%.2f, ", mag[i]);
-//	}
-
 	// 找到两信号粗估计bin下标
-	uint32_t k1, k2;
+	uint32_t k1 = 0, k2 = 0;
 	find_peaks(&k1, &k2);
 
-	// 对初始频率做抛物线插值
-	float32_t d1 = interp_parabolic(mag[k1 - 1U], mag[k1], mag[k1 + 1U]);
-	float32_t d2 = interp_parabolic(mag[k2 - 1U], mag[k2], mag[k2 + 1U]);
-	float32_t k1_hat = (float32_t)k1 + d1;
-	float32_t k2_hat = (float32_t)k2 + d2;
-//	float32_t f1 = k1_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
-//	float32_t f2 = k2_hat * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
 	float32_t f1 = (float32_t)k1 * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
 	float32_t f2 = (float32_t)k2 * (float32_t)SAMPLE_RATE / (float32_t)FFT_SIZE;
 
@@ -79,35 +67,23 @@ void process_signal(void)
 	prev[0] = (bin_prev_t){c1[0], c1[1], k1};
 	prev[1] = (bin_prev_t){c2[0], c2[1], k2};
 	
-	uint32_t tempflag;
-	if(k1 > k2)
-		tempflag = k1 - k2;
-	else
-		tempflag = k2 - k1;
-	
-	if(tempflag < 10)
-		f2 = 0.0f;
+	if(!k2)
+		f2 = 0.001f;
 		
 	tones[0].f = f1;  tones[1].f = f2;
 
 	// 最小二乘法计算幅度与相位
-	if(f2 > 0)
+	float32_t I1, Q1, I2, Q2;
+	least_square(tones[0].f, tones[1].f, ADC_ConvData, &I1, &Q1, &I2, &Q2);
+	tones[0].f = f1;
+	arm_sqrt_f32(I1 * I1 + Q1 * Q1, &tones[0].A);
+	arm_atan2_f32(Q1, I1, &tones[0].phi);
+	tones[1].f = f2;
+	if(f2 > 100)
 	{
-		float32_t I1, Q1, I2, Q2;
-		least_square(tones[0].f, tones[1].f, ADC_ConvData, &I1, &Q1, &I2, &Q2);
-		tones[0].f = f1;
-		arm_sqrt_f32(I1 * I1 + Q1 * Q1, &tones[0].A);
-		arm_atan2_f32(Q1, I1, &tones[0].phi);
-		tones[1].f = f2;
 		arm_sqrt_f32(I2 * I2 + Q2 * Q2, &tones[1].A);
 		arm_atan2_f32(Q2, I2, &tones[1].phi);
-	}
-	else
-	{
-		// 相关法计算幅度与相位
-		corr_amp_phase(tones[0].f, ADC_ConvData, &tones[0].A, &tones[0].phi);
-		corr_amp_phase(tones[1].f, ADC_ConvData, &tones[1].A, &tones[1].phi);
-	}				
+	}		
 }
 
 /**
@@ -354,27 +330,60 @@ void FFT_start(uint8_t window_type)
  */
 void find_peaks(uint32_t *k1, uint32_t *k2)
 {
-	float32_t m1 = 0, m2 = 0; 
-	int i1 = 0, i2 = 0;
-    for (int k = 9; k < FFT_SIZE / 2; ++k) 
-	{
-        float32_t v = mag[k];
-        if (v > m1) 
-		{ 
-			m2 = m1; 
-			i2 = i1; 
-			m1 = v; 
-			i1 = k; 
-		}
-        else if (v > m2 && ((k - i1 > 9) || (k - i1 < -9))) 
-		{ 
-			m2 = v; 
-			i2 = k;
-		}
-    }
+	float32_t m = 10;
+	int i = 0;
 	
-    *k1 = i1; 
-	*k2 = i2;
+	for(int k = 0; k < FFT_SIZE / 2; ++k)
+	{
+		float32_t v = mag[k];
+		if(v > m)
+		{
+			m = v;
+			i = k;
+		}
+	}
+	
+	*k1 = i;
+	i = 0;
+	m = 10;
+	for(int k = 0; k < FFT_SIZE / 2; ++k)
+	{
+		if(k > *k1 - 4 && k <*k1 + 4)
+			continue;
+		
+		float32_t v = mag[k];		
+		if(v > m)
+		{
+			m = v;
+			i = k;
+		}
+	}
+	*k2 = i;
+		
+//	float32_t m1 = 0, m2 = 0; 
+//	int i1 = 0, i2 = 0;
+//    for (int k = 9; k < FFT_SIZE / 2; ++k) 
+//	{
+//        float32_t v = mag[k];
+//        if (v > m1) 
+//		{ 
+//			if((k - i1 > 9) || (k - i1 < -9))
+//			{
+//				m2 = m1; 
+//				i2 = i1;
+//			}
+//			m1 = v;
+//			i1 = k;
+//		}
+//        else if (v > m2 && ((k - i1 > 9) || (k - i1 < -9))) 
+//		{ 
+//			m2 = v; 
+//			i2 = k;
+//		}
+//    }
+//	
+//    *k1 = i1; 
+//	*k2 = i2;
 }
 
 /**
